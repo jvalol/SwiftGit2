@@ -739,6 +739,22 @@ public final class Repository {
 		return .success(Diff(mergeDiff!))
 	}
 
+	/// The changes a commit made against its first parent.
+	///
+	/// `diff(for:)` unions the diff against every parent, which answers "which
+	/// files differ from at least one side" rather than "what did this commit do".
+	/// For a merge that reads as more than happened, and for a stash it is wrong
+	/// outright: an untracked stash has a third parent whose tree holds only the
+	/// untracked files, so every tracked file shows up as added or deleted against
+	/// it. This follows the first parent alone, which is the side `git stash show`
+	/// and `git log --first-parent` describe.
+	///
+	/// A root commit has no parent and so diffs against nothing, listing every
+	/// file as added, exactly as `diff(for:)` does.
+	public func diffAgainstFirstParent(for commit: Commit) -> Result<Diff, NSError> {
+		return self.diff(from: commit.parents.first?.oid, to: commit.oid)
+	}
+
 	private func diff(from oldCommitOid: OID?, to newCommitOid: OID?, transform: (Result<OpaquePointer, NSError>) -> NSError?) -> NSError? {
 		assert(oldCommitOid != nil || newCommitOid != nil, "It is an error to pass nil for both the oldOid and newOid")
 
