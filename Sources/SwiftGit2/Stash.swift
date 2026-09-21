@@ -68,6 +68,17 @@ public extension Repository {
 	}
 }
 
+/// What happened when a stash was dropped.
+public enum StashDropOutcome {
+	/// The entry is off the list. The commit it named is still in the object
+	/// database as an unreachable object, and `git stash store <oid>` puts it back,
+	/// until git prunes it.
+	case dropped
+
+	/// No stash at that position. The list is shorter than the caller thought.
+	case notFound
+}
+
 /// What happened when a stash was applied.
 ///
 /// A conflict is an outcome rather than a failure: it is the expected answer
@@ -139,6 +150,27 @@ public extension Repository {
 			return .success(.notFound)
 		default:
 			return .failure(NSError(gitError: result, pointOfFailure: pointOfFailure))
+		}
+	}
+
+	/// Removes a stash from the list without applying it.
+	///
+	/// The same warning about `index` applies as for apply and pop: it is
+	/// positional, so it must come from a read taken now.
+	///
+	/// This does not destroy the stashed work. It removes the entry from the reflog
+	/// of `refs/stash`, leaving the commit unreachable but present, so a caller that
+	/// kept the object id can restore it with `git stash store`.
+	func dropStash(at index: Int) -> Result<StashDropOutcome, NSError> {
+		let result = git_stash_drop(self.pointer, index)
+
+		switch result {
+		case GIT_OK.rawValue:
+			return .success(.dropped)
+		case GIT_ENOTFOUND.rawValue:
+			return .success(.notFound)
+		default:
+			return .failure(NSError(gitError: result, pointOfFailure: "git_stash_drop"))
 		}
 	}
 }
