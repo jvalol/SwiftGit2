@@ -32,13 +32,41 @@ public struct Diff: Hashable {
 	public var deltas = [Delta]()
 
 	public struct Delta: Hashable {
+
+		// Two levels deep so that it reads as `Diff.Delta.Status`, which is where
+		// libgit2 puts it too.
+		// swiftlint:disable nesting
+
+		/// What happened to one file between the two sides of a diff.
+		///
+		/// This mirrors libgit2's `git_delta_t`, which is the type
+		/// `git_diff_delta.status` actually holds, and the raw values are that
+		/// enum's. It is deliberately not `Diff.Status`: that one is a set of
+		/// `git_status_t` bit flags describing a working directory, and a delta
+		/// names a single kind rather than a set of them.
+		public enum Status: UInt32 {
+			case unmodified = 0
+			case added      = 1
+			case deleted    = 2
+			case modified   = 3
+			case renamed    = 4
+			case copied     = 5
+			case ignored    = 6
+			case untracked  = 7
+			case typeChange = 8
+			case unreadable = 9
+			case conflicted = 10
+		}
+
+		// swiftlint:enable nesting
+
 		public var status: Status
 		public var flags: Flags
 		public var oldFile: File?
 		public var newFile: File?
 
 		public init(_ delta: git_diff_delta) {
-			self.status = Status(rawValue: UInt32(git_diff_status_char(delta.status)))
+			self.status = Status(rawValue: delta.status.rawValue) ?? .unmodified
 			self.flags = Flags(rawValue: delta.flags)
 			self.oldFile = File(delta.old_file)
 			self.newFile = File(delta.new_file)
